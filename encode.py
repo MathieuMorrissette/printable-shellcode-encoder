@@ -1,6 +1,6 @@
 import argparse
 import binascii
-import string
+import string 
 
 # x86 only on eax register
 
@@ -9,6 +9,7 @@ import string
 # pop eax                          ;EAX now contains 'aaaa'.
 # xor eax,'aaaa'
 
+# TODO do not convert instruction if it doesnt contains bad chars
 
 valid_ascii =  string.ascii_letters 
 valid_ascii += string.digits
@@ -33,26 +34,36 @@ parser.add_argument('shellcode')
 
 args = parser.parse_args()
 
-shellcode = b""
-
-with open(args.shellcode, "rb") as f:
-    shellcode = f.read()
+shellcode = binascii.unhexlify(args.shellcode)
 
 
 if len(shellcode) % 4 != 0 :
     print("shellcode must be 4 bytes divisible")
 
+# make sure to move esp (sub esp)
 
-print("PUSH 'aaaa'")
-print("POP eax")
-print("XOR eax, 'aaaa'") # eax is now 0
+
+
+# CODE TO ZERO OUT EAX
+#push 0x41414141;
+#pop eax;
+#xor eax, eax;
+# -----
+# "\x68\x41\x41\x41\x41\x58\x31\xC0"
 
 chunks_count = int(len(shellcode) / 4)
 
 chunks = []
 
-for i in range(0, chunks_count - 1):
-    chunk = bytearray(shellcode[i * 4: (i * 4) + 4])
+p = chunks_count - 1
+
+# We must do it in reverse because we push it on the stack (esp - 4)
+while p >= 0:
+    print("PUSH 0x41414141;")
+    print("POP eax;")
+    print("XOR eax, 0x41414141;") # eax is now 0
+
+    chunk = bytearray(shellcode[p * 4: (p * 4) + 4])
     chunk.reverse()
     two_complement = 0xffffffff - int(binascii.hexlify(chunk), 16) + 1
 
@@ -101,18 +112,16 @@ for i in range(0, chunks_count - 1):
             if i == 0: 
                 converted = True
 
-
-
-        
-
-        
-    print("SUB eax," + hex(int(binascii.hexlify(sub1), 16)))
-    print("SUB eax," + hex(int(binascii.hexlify(sub2), 16)))
-    print("SUB eax," + hex(int(binascii.hexlify(sub3), 16)))
+    print("SUB eax," + hex(int(binascii.hexlify(sub1), 16))+ ";")
+    print("SUB eax," + hex(int(binascii.hexlify(sub2), 16))+ ";")
+    print("SUB eax," + hex(int(binascii.hexlify(sub3), 16))+ ";")
     
-    for i in range(subCount):
-        print("SUB eax,0x55555555")
+    for x in range(subCount):
+        print("SUB eax, 0x55555555;")
+
+    p = p - 1
     
-    print("push eax")
+    print("PUSH eax;")
 
 
+# At the end we want to jump on top of stack (where esp points to)
